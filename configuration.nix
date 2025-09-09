@@ -55,7 +55,7 @@
   users.users.cosmos = {
     isNormalUser = true;
     description = "Wenhan Zhu";
-    extraGroups = [ "networkmanager" "wheel" "docker" ];
+    extraGroups = [ "networkmanager" "wheel" "docker" "sambashare" ];
     packages = with pkgs; [];
   };
 
@@ -64,16 +64,25 @@
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   environment.systemPackages = with pkgs; [
     dua
+    duf
+    gcc
     git
     htop
+    iperf3
     lm_sensors
     mergerfs
+    neovim
+    python3
     ranger
     smartmontools
+    stow
     tmux
+    uv
     vim
     wget
   ];
+
+  environment.enableAllTerminfo = true;
 
   # List services that you want to enable:
   services.openssh = {
@@ -101,28 +110,42 @@
   services.samba = {
     enable = true;
     openFirewall = true;
-    securityType = "user";
-    settings = {
+    settings = let 
+      mkShare = path: {
+        path = path;
+        browseable = "yes";
+        "read only" = "no";
+        "guest ok" = "no";
+        "create mask" = "0644";
+        "directory mask" = "0755";
+        "force user" = "cosmos";
+        "force group" = "users"; 
+        "valid users" = "cosmos"; 
+      };
+      mkPubShare = path: {
+        path = path;
+        browseable = "yes";
+        "read only" = "yes";
+        "guest ok" = "yes";
+        "force user" = "cosmos";
+        "force group" = "users"; 
+        "follow symlinks" = "yes";
+        "wide links" = "yes";
+      };
+    in {
       global = {
         "workgroup" = "WORKGROUP";
         "server string" = "tian";
         "netbios name" = "tian";
         "security" = "user";
         "guest ok" = "no";
+        "map to guest" = "bad user";
+        "guest account" = "nobody";
+        "access based share enum" = "yes";
+        "allow insecure wide links" = "yes";
       };
-    };
-    shares = let mkShare = path: {
-      path = path;
-      browseable = "yes";
-      "read only" = "no";
-      "guest ok" = "no";
-      "create mask" = "0644";
-      "directory mask" = "0755";
-      "force user" = "cosmos";
-      "force group" = "users"; 
-    };
-    in {
       jbod = mkShare "/mnt/jbod";
+      jbod-public = mkPubShare "/mnt/jbod/PTDownloads/public";
       "disk-14t-03105900" = mkShare "/mnt/drives/disk-14t-03105900/Share";
       "disk-14t-b29daf5a" = mkShare "/mnt/drives/disk-14t-b29daf5a/Share";
       "disk-14t-ddc2e295" = mkShare "/mnt/drives/disk-14t-ddc2e295/Share";
@@ -136,6 +159,7 @@
       "nvme-disk-1t-704b0b83" = mkShare "/mnt/drives/nvme-disk-1t-704b0b83/Share";
     };
   };
+
   services.avahi = {
     enable = true;
     openFirewall = true;
@@ -148,5 +172,9 @@
 
   networking.firewall.enable = true;
   networking.firewall.allowPing = true;
+
+  # For iperf testing purposes
+  networking.firewall.allowedTCPPorts = [ 5201 6800 6888 ];
+  networking.firewall.allowedUDPPorts = [ 5201 6888 ];
 
 }
